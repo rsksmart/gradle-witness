@@ -24,25 +24,33 @@ class WitnessPlugin implements Plugin<Project> {
     void apply(Project project) {
         project.extensions.create("dependencyVerification", WitnessPluginExtension)
         project.afterEvaluate {
+            List artifacts = new ArrayList()
+            project.configurations.each {
+                if (it.metaClass.respondsTo(it, 'isCanBeResolved') ? it.isCanBeResolved() : true) {
+                    artifacts.addAll(it.resolvedConfiguration.resolvedArtifacts)
+                }
+            }
             project.dependencyVerification.verify.each {
                 assertion ->
-                    List  parts  = assertion.tokenize(":")
-                    String group = parts.get(0)
-                    String name  = parts.get(1)
-                    String hash  = parts.get(2)
+                    List parts = assertion.tokenize(":")
+                    def (group, name, hash) = parts
 
-                    ResolvedArtifact dependency = project.configurations.testRuntime.resolvedConfiguration.resolvedArtifacts.find {
+                    List dependencies = artifacts.findAll {
                         return it.name.equals(name) && it.moduleVersion.id.group.equals(group)
                     }
 
                     println "Verifying " + group + ":" + name
 
-                    if (dependency == null) {
+                    if (dependencies.isEmpty()) {
                         throw new InvalidUserDataException("No dependency for integrity assertion found: " + group + ":" + name)
                     }
 
-                    if (!hash.equals(calculateSha256(dependency.file))) {
-                        throw new InvalidUserDataException("Checksum failed for " + assertion)
+                    Set files = new TreeSet()
+                    dependencies.each { files.add(it.file) }
+                    files.each {
+                        if (!hash.equals(calculateSha256(it))) {
+                            throw new InvalidUserDataException("Checksum failed for " + assertion)
+                        }
                     }
             }
 
@@ -50,14 +58,21 @@ class WitnessPlugin implements Plugin<Project> {
 
 
         project.task('calculateChecksums') << {
-            println "dependencyVerification {"
-            println "    verify = ["
-
-            project.configurations.testRuntime.resolvedConfiguration.resolvedArtifacts.each {
-                dep ->
-                    println "        '" + dep.moduleVersion.id.group+ ":" + dep.name + ":" + calculateSha256(dep.file) + "',"
+            Set dependencies = new TreeSet()
+            project.configurations.each {
+                if (it.metaClass.respondsTo(it, 'isCanBeResolved') ? it.isCanBeResolved() : true) {
+                    it.resolvedConfiguration.resolvedArtifacts.findAll {
+                        // Skip internal dependencies
+                        it.moduleVersion.id.version != 'unspecified'
+                    }.each {
+                        dep -> dependencies.add(dep.moduleVersion.id.group + ":" + dep.name + ":" + calculateSha256(dep.file))
+                    }
+                }
             }
 
+            println "dependencyVerification {"
+            println "    verify = ["
+            dependencies.each { dep -> println "        '" + dep + "'," }
             println "    ]"
             println "}"
         }
