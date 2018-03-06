@@ -24,7 +24,7 @@ class WitnessPlugin implements Plugin<Project> {
     void apply(Project project) {
         project.extensions.create("dependencyVerification", WitnessPluginExtension)
         project.afterEvaluate {
-            List artifacts = new ArrayList()
+            Set<ResolvedArtifact> artifacts = new HashSet<>()
             project.configurations.each {
                 if (it.metaClass.respondsTo(it, 'isCanBeResolved') ? it.isCanBeResolved() : true) {
                     artifacts.addAll(it.resolvedConfiguration.resolvedArtifacts)
@@ -35,9 +35,10 @@ class WitnessPlugin implements Plugin<Project> {
                     List parts = assertion.tokenize(":")
                     def (group, name, hash) = parts
 
-                    List dependencies = artifacts.findAll {
+                    Set<ResolvedArtifact> dependencies = artifacts.findAll {
                         return it.name.equals(name) && it.moduleVersion.id.group.equals(group)
                     }
+                    artifacts.removeAll(dependencies)
 
                     println "Verifying " + group + ":" + name
 
@@ -54,27 +55,10 @@ class WitnessPlugin implements Plugin<Project> {
                     }
             }
 
-        }
-
-
-        project.task('calculateChecksums') << {
-            Set dependencies = new TreeSet()
-            project.configurations.each {
-                if (it.metaClass.respondsTo(it, 'isCanBeResolved') ? it.isCanBeResolved() : true) {
-                    it.resolvedConfiguration.resolvedArtifacts.findAll {
-                        // Skip internal dependencies
-                        it.moduleVersion.id.version != 'unspecified'
-                    }.each {
-                        dep -> dependencies.add(dep.moduleVersion.id.group + ":" + dep.name + ":" + calculateSha256(dep.file))
-                    }
-                }
+            if (!artifacts.isEmpty()) {
+                def missing = artifacts.collect{ "- " + it.moduleVersion.id.group + ":" + it.name }.join("\n")
+                throw new InvalidUserDataException("No dependency for integrity assertion found for: \n" + missing)
             }
-
-            println "dependencyVerification {"
-            println "    verify = ["
-            dependencies.each { dep -> println "        '" + dep + "'," }
-            println "    ]"
-            println "}"
         }
     }
 }
