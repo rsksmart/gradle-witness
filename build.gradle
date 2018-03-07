@@ -1,3 +1,14 @@
+import java.util.zip.ZipOutputStream
+import java.util.jar.JarEntry
+import java.util.jar.JarFile
+import java.util.zip.ZipEntry
+import java.nio.file.Files
+import java.nio.file.Paths
+
+plugins {
+    id 'com.github.johnrengelman.shadow' version '1.2.4'
+}
+
 apply plugin: 'groovy'
 
 dependencies {
@@ -5,6 +16,84 @@ dependencies {
     compile localGroovy()
 }
 
+wrapper.gradleVersion = '4.1.0'
+
 sourceCompatibility = '1.7'
 targetCompatibility = '1.7'
 
+tasks.withType(JavaCompile){
+    options.warnings = false
+}
+
+tasks.withType(AbstractArchiveTask) {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+task reproducible(dependsOn: 'shadowJar') {
+    doLast {
+        long fixDateJar = gitDateHash() * 1000
+        File newJar = new File(shadowJar.archivePath.parent, 'tmp-' + shadowJar.archiveName)
+        ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(newJar))
+        JarFile jf = new JarFile(shadowJar.archivePath)
+        jf.entries().each { entry ->
+            cloneAndCopyEntry(jf, entry, zos, fixDateJar)
+        }
+        zos.finish()
+        jf.close()
+        Files.deleteIfExists(Paths.get(shadowJar.archivePath.getAbsolutePath()));
+        newJar.renameTo(shadowJar.archivePath)
+    }
+}
+
+void compareJars(File original, File copy, long ts) {
+    def jf = new JarFile(original)
+    def cjf = new JarFile(copy)
+    jf.entries().each { entry ->
+        def centry = cjf.getJarEntry(entry.name)
+        compareEntries(entry, centry, ts)
+    }
+}
+
+void compareEntries(JarEntry entry, JarEntry centry, long ts) {
+    assert entry.name == centry.name
+    assert entry.comment == centry.comment
+    assert entry.compressedSize == centry.compressedSize
+    assert entry.crc == centry.crc
+    assert entry.extra == centry.extra
+    assert entry.method == centry.method
+    assert entry.size == centry.size
+    assert ts == centry.time
+    assert entry.hashCode() == centry.hashCode()
+}
+
+void cloneAndCopyEntry(JarFile originalFile, JarEntry original, ZipOutputStream zos, long newTimestamp) {
+    ZipEntry clone = new ZipEntry(original)
+    clone.time = newTimestamp
+    def entryIs = originalFile.getInputStream(original)
+    zos.putNextEntry(clone)
+    copyBinaryData(entryIs, zos)
+}
+
+void copyBinaryData(InputStream is, ZipOutputStream zos) {
+    byte[] buffer = new byte[1024*1024]
+    int len = 0
+    while((len = is.read(buffer)) != -1) {
+        zos.write(buffer, 0, len)
+    }
+}
+
+def gitCurrentBranch() {
+    def process = "git rev-parse --abbrev-ref HEAD".execute()
+    return process.text
+}
+
+def gitCommitHash() {
+    def process = "git rev-parse --short HEAD".execute()
+    return process.text
+}
+
+def gitDateHash() {
+    def process = "git show -s --format=%ct ${gitCommitHash()}".execute()
+    return process.text.toLong()
+}

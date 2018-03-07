@@ -74,9 +74,19 @@ Unfortunately, it doesn't make sense to publish `gradle-witness` as an artifact,
 creates a bootstrapping problem.  To use `gradle-witness`, the jar needs to be built and included
 in your project:
 
-    $ git clone https://github.com/WhisperSystems/gradle-witness.git
+    $ git clone https://github.com/rsksmart/gradle-witness.git
     $ cd gradle-witness
-    $ gradle build
+    $ sudo docker build -t gradle-witness .
+    $ sudo docker run -v $(pwd):/gradle-witness -w /gradle-witness gradle-witness:latest sh -c 'gpg --keyserver https://secchannel.rsk.co/release.asc --recv-keys 5DECF4415E3B8FA4 && gpg --finger 5DECF4415E3B8FA4 && gpg --verify SHA256SUMS.asc && sha256sum --check SHA256SUMS.asc && ./configure.sh && ./gradlew shadow assemble reproducible'
+
+To get the current version hash:
+
+    $ sha256sum build/libs/*
+086b2c4e2060e637356afde55771f68c020a8c1f4331b99c5277a1adb89f7532  build/libs/gradle-witness-all.jar
+23d06837c27702ff3f9f24e5c5502bbbe29b3602fa67710ec3d732f9a53823db  build/libs/gradle-witness.jar
+
+Then, to use the plugin in your proyect:
+
     $ cp build/libs/gradle-witness.jar /path/to/your/project/libs/gradle-witness.jar
 
 Then in your project's `build.gradle`, the buildscript needs to add a `gradle-witness` dependency.
@@ -125,3 +135,4 @@ Running `gradle -q calculateChecksums` will print:
 
 And that's it! From then on, running a standard `gradle build` will verify the integrity of
 the project's dependencies.
+
