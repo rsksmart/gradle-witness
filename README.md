@@ -74,9 +74,10 @@ Unfortunately, it doesn't make sense to publish `gradle-witness` as an artifact,
 creates a bootstrapping problem.  To use `gradle-witness`, the jar needs to be built and included
 in your project:
 
-    $ git clone https://github.com/WhisperSystems/gradle-witness.git
+    $ git clone https://github.com/rsksmart/gradle-witness.git
     $ cd gradle-witness
-    $ gradle build
+    $ sudo docker build -t gradle-witness .
+    $ sudo docker run -v $(pwd):/gradle-witness -w /gradle-witness gradle-witness:lastet sh -c './configure.sh && ./gradlew shadow assemble reproducible'
     $ cp build/libs/gradle-witness.jar /path/to/your/project/libs/gradle-witness.jar
 
 Then in your project's `build.gradle`, the buildscript needs to add a `gradle-witness` dependency.
@@ -125,3 +126,6 @@ Running `gradle -q calculateChecksums` will print:
 
 And that's it! From then on, running a standard `gradle build` will verify the integrity of
 the project's dependencies.
+
+
+## Reproduce Build
