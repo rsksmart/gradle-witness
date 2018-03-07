@@ -78,6 +78,15 @@ in your project:
     $ cd gradle-witness
     $ sudo docker build -t gradle-witness .
     $ sudo docker run -v $(pwd):/gradle-witness -w /gradle-witness gradle-witness:lastet sh -c './configure.sh && ./gradlew shadow assemble reproducible'
+
+To get the current version hash:
+
+    $ sha256sum build/libs/*
+086b2c4e2060e637356afde55771f68c020a8c1f4331b99c5277a1adb89f7532  build/libs/gradle-witness-all.jar
+23d06837c27702ff3f9f24e5c5502bbbe29b3602fa67710ec3d732f9a53823db  build/libs/gradle-witness.jar
+
+Then, to use the plugin in your proyect:
+
     $ cp build/libs/gradle-witness.jar /path/to/your/project/libs/gradle-witness.jar
 
 Then in your project's `build.gradle`, the buildscript needs to add a `gradle-witness` dependency.
