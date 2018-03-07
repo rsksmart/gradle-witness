@@ -77,7 +77,7 @@ in your project:
     $ git clone https://github.com/rsksmart/gradle-witness.git
     $ cd gradle-witness
     $ sudo docker build -t gradle-witness .
-    $ sudo docker run -v $(pwd):/gradle-witness -w /gradle-witness gradle-witness:lastet sh -c './configure.sh && ./gradlew shadow assemble reproducible'
+    $ sudo docker run -v $(pwd):/gradle-witness -w /gradle-witness gradle-witness:lastet sh -c 'gpg --keyserver https://secchannel.rsk.co/release.asc --recv-keys 5DECF4415E3B8FA4 && gpg --finger 5DECF4415E3B8FA4 && gpg --verify SHA256SUMS.asc && sha256sum --check SHA256SUMS.asc && ./configure.sh && ./gradlew shadow assemble reproducible'
 
 To get the current version hash:
 
