@@ -74,9 +74,18 @@ Unfortunately, it doesn't make sense to publish `gradle-witness` as an artifact,
 creates a bootstrapping problem.  To use `gradle-witness`, the jar needs to be built and included
 in your project:
 
-    $ git clone https://github.com/WhisperSystems/gradle-witness.git
+    $ git clone https://github.com/rsksmart/gradle-witness.git
     $ cd gradle-witness
-    $ gradle build
+    $ sudo docker build -t gradle-witness .
+    $ sudo docker run -v $(pwd):/gradle-witness -w /gradle-witness gradle-witness:latest sh -c 'gpg --keyserver https://secchannel.rsk.co/release.asc --recv-keys 5DECF4415E3B8FA4 && gpg --finger 5DECF4415E3B8FA4 && gpg --verify SHA256SUMS.asc && sha256sum --check SHA256SUMS.asc && ./configure.sh && ./gradlew build'
+
+To get the current version hash:
+
+    $ sha256sum build/libs/*
+    7fa3d70d4e8a5c2b3237f1aaa03977885e13b38a38f9dfb696d3fe0522a9514d  build/libs/gradle-witness.jar
+
+Then, to use the plugin in your proyect:
+
     $ cp build/libs/gradle-witness.jar /path/to/your/project/libs/gradle-witness.jar
 
 Then in your project's `build.gradle`, the buildscript needs to add a `gradle-witness` dependency.
