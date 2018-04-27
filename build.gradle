@@ -12,14 +12,6 @@ dependencies {
 sourceCompatibility = '1.7'
 targetCompatibility = '1.7'
 
-wrapper.gradleVersion = '4.1.0'
-
-buildscript {
-    dependencies {
-        classpath files('libs/rsk-gradle-witness.jar')
-    }
-}
-
 tasks.withType(Jar) {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
