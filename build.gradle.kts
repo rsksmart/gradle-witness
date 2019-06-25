@@ -1,10 +1,9 @@
 plugins {
-    groovy
+    `kotlin-dsl`
 }
 
-dependencies {
-    compile(gradleApi())
-    compile(localGroovy())
+repositories {
+    jcenter()
 }
 
 version = "0.1.0"
