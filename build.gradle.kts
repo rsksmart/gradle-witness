@@ -6,6 +6,11 @@ repositories {
     jcenter()
 }
 
+dependencies {
+    testCompileOnly(gradleTestKit())
+    testImplementation("junit:junit:4.12")
+}
+
 version = "0.1.0"
 
 gradlePlugin {
