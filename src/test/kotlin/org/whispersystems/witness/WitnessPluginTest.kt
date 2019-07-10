@@ -19,72 +19,109 @@ class WitnessPluginTest {
 
     private lateinit var buildFile: File
 
+    private val dependency = "com.typesafe:config"
+    private val dependencyVersion = "1.3.3"
     private val correctHash = "b5f1d6071f1548d05be82f59f9039c7d37a1787bd8e3c677e31ee275af4a4621"
     private val incorrectHash = "b5f1d6071f1548d05be82f59f9039c7d37a1787bd8e3c677e31ee275af4a462f"
 
     @Before
     fun setup() {
         buildFile = testProjectDir.newFile("build.gradle")
-        buildFile.writeText("""
-            plugins {
-              id 'witness'
-            }
-            repositories {
-                mavenCentral()
-            }
-            apply plugin:'java'
-            """)
     }
 
     @Test
     fun `can verify dependency and assemble project`() {
-        addDependency()
-        addVerification(correctHash)
+        GradleRunnerBuilder().run {
+            addDependency("$dependency:$dependencyVersion")
+            addVerification("$dependency:$correctHash")
+            build(buildFile)
+        }
 
-        val result = runnerForAssemble().build()
+        val result = runnerForAssembleTask().build()
 
-        assertThat(result.output, containsString("Verifying com.typesafe:config"))
+        assertThat(result.output, containsString("Verifying $dependency"))
         assertThat(result.task(":assemble")!!.outcome, equalTo(SUCCESS))
     }
 
     @Test
-    fun `can assemble project with dependency without validation`() {
-        addDependency()
+    fun `can exclude dependency from verification and assemble project`() {
+        GradleRunnerBuilder().run {
+            addDependency("$dependency:$dependencyVersion")
+            addExclude(dependency)
+            build(buildFile)
+        }
 
-        val result = runnerForAssemble().build()
+        val result = runnerForAssembleTask().build()
 
+        assertThat(result.output, containsString("Skipping verification for $dependency"))
         assertThat(result.task(":assemble")!!.outcome, equalTo(SUCCESS))
+    }
+
+    @Test
+    fun `stops assembling project with missing dependency validation`() {
+        GradleRunnerBuilder().run {
+            addDependency("$dependency:$dependencyVersion")
+            build(buildFile)
+        }
+
+        val result = runnerForAssembleTask().buildAndFail()
+
+        assertThat(result.output, containsString("No dependency for integrity assertion found for:"))
+        assertThat(result.output, containsString("- $dependency"))
     }
 
     @Test
     fun `stops assembling project when dependency can't be verified`() {
-        addDependency()
-        addVerification(incorrectHash)
+        GradleRunnerBuilder().run {
+            addDependency("$dependency:$dependencyVersion")
+            addVerification("$dependency:$incorrectHash")
+            build(buildFile)
+        }
 
-        val result = runnerForAssemble().buildAndFail()
+        val result = runnerForAssembleTask().buildAndFail()
 
-        assertThat(result.output, containsString("Checksum failed for com.typesafe:config"))
+        assertThat(result.output, containsString("Checksum failed for $dependency"))
     }
 
-    private fun addDependency() {
-        buildFile.appendText("""
-            dependencies {
-                compile "com.typesafe:config:1.3.3"
-            }
-            """)
+    @Test
+    fun `stops assembling with invalid verification`() {
+        GradleRunnerBuilder().run {
+            addVerification("$dependency:$correctHash")
+            build(buildFile)
+        }
+
+        val result = runnerForAssembleTask().buildAndFail()
+
+        assertThat(result.output, containsString("No dependency for integrity assertion found: $dependency"))
     }
 
-    private fun addVerification(hash: String) {
-        buildFile.appendText("""
-            dependencyVerification {
-                verify = [
-                    'com.typesafe:config:$hash'
-                ]
-            }
-            """)
+    @Test
+    fun `stops assembling with invalid exclude`() {
+        GradleRunnerBuilder().run {
+            addExclude(dependency)
+            build(buildFile)
+        }
+
+        val result = runnerForAssembleTask().buildAndFail()
+
+        assertThat(result.output, containsString("No dependency for integrity exclusion found: $dependency"))
     }
 
-    private fun runnerForAssemble() = GradleRunner.create()
+    @Test
+    fun `stops assembling with both exclude and verification`() {
+        GradleRunnerBuilder().run {
+            addDependency("$dependency:$dependencyVersion")
+            addVerification("$dependency:$correctHash")
+            addExclude(dependency)
+            build(buildFile)
+        }
+
+        val result = runnerForAssembleTask().buildAndFail()
+
+        assertThat(result.output, containsString("No dependency for integrity assertion found: $dependency"))
+    }
+
+    private fun runnerForAssembleTask() = GradleRunner.create()
         .withProjectDir(testProjectDir.root)
         .withArguments("assemble")
         .withPluginClasspath()
