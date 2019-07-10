@@ -132,5 +132,13 @@ Running `gradle -q calculateChecksums` will print:
 
 ...which you can then include directly below the `dependency` definition in the project's `build.gradle`.
 
+Some projects depend on snapshot versions which can't be easily pinned. For this, you can use:
+
+    dependencyVerification {
+        exclude = [
+            'co.rsk:rskj-core',
+        ]
+    }
+
 And that's it! From then on, running a standard `gradle build` will verify the integrity of
 the project's dependencies.
